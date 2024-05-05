@@ -18,6 +18,10 @@ body {
 
 .main-content {
     padding: 16px;
+    background-image: url("/src/client/asset/background.jpg");
+    background-repeat: no-repeat;
+    background-size: 100% 100%;
+    flex-grow: 1;
 }
 
 .footer {

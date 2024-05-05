@@ -1,36 +1,127 @@
-// API Constant Value
-const geoBaseURL = 'https://secure.geonames.org/searchJSON?q='
-const geoApiKey = 'quangtn14'
-const weatherBitBaseURL = 'https://api.weatherbit.io/v2.0/forecast/daily'
-const weatherBitApiKey = '723118fb280a46d5bc650aaaa26b3479'
+const moment = require("moment")
+
+// Function for init eventListener
+export const initAllListener = () => {
+    document.getElementById("form").addEventListener("submit", onSubmit)
+    let dateInput = document.getElementById("date")
+    dateInput.min = moment().format("YYYY-MM-DD")
+    dateInput.max = moment().add(15, "days").format("YYYY-MM-DD")
+}
 
 
-const getGeoName = async (searchName) => {
-    const res = await fetch(geoBaseURL + searchName + "&username=" + geoApiKey)
+// Function handle when submit form
+export const onSubmit = async (e) => {
+    e.preventDefault()
+    clearResultUI()
+    let location = document.getElementById("location").value
+    let date = document.getElementById("date").value
+    let validateLocationRes = Client.validateInputLocation(location)
+    let validateDateRes = Client.validateInputDate(date)
+    if (!validateDateRes || !validateLocationRes) {
+        document.getElementById("error").innerText = "Invalid Input"
+        return;
+    }
+    pendingUI()
+    let encodedLocation = encodeValue(location.trim())
+    let formatedDate = moment(date).format("YYYY-MM-DD")
     try {
-        let result = res.json()
-        if (result.length > 0) {
-            let first = result[0]
-            return {
-                lat: first.lat,
-                lon: first.lng,
-                country: first.countryName,
-                city: first.toponymName
-            }
-        } else {
-            throw new Error("No data found")
-        }
+        let geoInfo = await Client.getGeoInfo(encodedLocation)
+        let weatherInfos = await Client.getWeatherInfo(geoInfo.lat, geoInfo.lon, formatedDate)
+        let locationImage = await Client.getImageInfo(geoInfo.country)
+        console.log(weatherInfos)
+        updateResultUI(formatedDate, geoInfo, weatherInfos, locationImage)
     } catch (exception) {
-        console.log("Error while call API get GEONAME: ", exception)
+        alert(exception)
+        nodataUI()
     }
 }
 
-const getWeatherInfo = async (lat, lon, date) => {
+// Function update result into UI
+export const updateResultUI = (dateSubmit, geoInfo, weatherInfos, locationImage) => {
+    let locationImageTag = `<img class="result-image" src=${locationImage} />`
+    let travelInfoTag = `
+        <div class="travel-info" >
+            <div class="travel-child-info">
+                <i class="bi bi-geo-alt-fill"></i>
+                <p>Location: ${geoInfo.country}</p>
+            </div>
+            <div class="travel-child-info">
+                <i class="bi bi-calendar-date-fill"></i>
+                <p>Travel date: ${formatDate(dateSubmit)}</p>
+            </div >
+        </div >
+    `
+    let weatherInfoChilds = weatherInfos.map(x => `
+        <div class="weather-info">
+            <div class="date-info">
+                ${formatDate(x.date)}
+            </div>
+            <div class="child-info">
+                <i class="bi bi-thermometer-low"></i>
+                <p>${x.minTemp}°C</p>
+            </div>
+            <div class="child-info">
+                <i class="bi bi-thermometer-high"></i>
+                <p>${x.maxTemp}°C</p>
+            </div>
+            <div class="child-info">
+                <i class="bi bi-brightness-high-fill"></i>
+                <p>UV: ${x.uv}</p>
+            </div>
+            <div class="child-info">
+                <i class="bi bi-cloud-rain-fill"></i>
+                <p>Probability of precipitation: ${x.percentRain}%</p>
+            </div>
+            <div class="child-info">
+                <i class="bi bi-snow"></i>
+                <p>Snow: ${x.snow}mm</p>
+            </div>
+            <div class="child-info">
+                <p>Description: ${x.description}</p>
+            </div>
+        </div>
+    `)
+    let weatherInfoTitle = ` 
+        <div div class="weather-info-title" >
+            Weather info
+        </div>
+    `
+    let weatherInfoTag = weatherInfoTitle + weatherInfoChilds.join("")
+    let buttonWrapper = `
+        <div class="result-action">
+            <button class="button-save">Save trip</button>
+            <button class="button-delete">Delete trip</button>
+        </div>
+    `
+    let resultTag = document.getElementById("result-content")
+    resultTag.innerHTML = locationImageTag + travelInfoTag + weatherInfoTag + buttonWrapper
 
-    const res = await fetch(`${weatherBitBaseURL}?lat=${lat}&lon=${lon}&key=${weatherBitApiKey}` + searchName + "&username=" + geoApiKey)
 
+
+    // </div > `
 }
 
-const calculateDaysNeedToRetrieve = (date) => {
-    let date = new Date(date)
+const clearResultUI = () => {
+    document.getElementById("error").innerText = ""
+    document.getElementById("result-content").innerHTML = ""
+    document.getElementById("result-content").classList.remove("show")
+}
+
+const pendingUI = () => {
+    document.getElementById("result-content").innerHTML = `<div class="pending-wrapper"><div class="loading"></div> Searching...</div>`
+    document.getElementById("result-content").classList.add("show")
+}
+
+const nodataUI = () => {
+    document.getElementById("result-content").innerHTML = `<div class="pending-wrapper">No data to show</div>`
+    document.getElementById("result-content").classList.add("show")
+}
+
+const encodeValue = (userInput) => {
+    const encoded = encodeURIComponent(userInput);
+    return encoded;
+}
+
+const formatDate = (date) => {
+    return moment(date).format("DD MMM YYYY");
 }
