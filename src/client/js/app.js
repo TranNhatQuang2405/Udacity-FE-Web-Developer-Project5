@@ -28,8 +28,8 @@ export const onSubmit = async (e) => {
         let geoInfo = await Client.getGeoInfo(encodedLocation)
         let weatherInfos = await Client.getWeatherInfo(geoInfo.lat, geoInfo.lon, formatedDate)
         let locationImage = await Client.getImageInfo(geoInfo.country)
-        console.log(weatherInfos)
-        updateResultUI(formatedDate, geoInfo, weatherInfos, locationImage)
+        let currentTrips = await Client.getTrips()
+        updateResultUI(formatedDate, geoInfo, weatherInfos, locationImage, currentTrips)
     } catch (exception) {
         alert(exception)
         nodataUI()
@@ -37,7 +37,7 @@ export const onSubmit = async (e) => {
 }
 
 // Function update result into UI
-export const updateResultUI = (dateSubmit, geoInfo, weatherInfos, locationImage) => {
+export const updateResultUI = (dateSubmit, geoInfo, weatherInfos, locationImage, currentTrips) => {
     let locationImageTag = `<img class="result-image" src=${locationImage} />`
     let travelInfoTag = `
         <div class="travel-info" >
@@ -87,18 +87,16 @@ export const updateResultUI = (dateSubmit, geoInfo, weatherInfos, locationImage)
         </div>
     `
     let weatherInfoTag = weatherInfoTitle + weatherInfoChilds.join("")
+    let isSaved = currentTrips.find(x => x.geonameId === geoInfo.geonameId && x.dateSubmit === dateSubmit) ? true : false
     let buttonWrapper = `
         <div class="result-action">
-            <button class="button-save">Save trip</button>
-            <button class="button-delete">Delete trip</button>
+            <button id="save-btn" class="button-save">Save trip</button>
+            <button id="delete-btn" class="button-delete">Delete trip</button>
         </div>
     `
     let resultTag = document.getElementById("result-content")
     resultTag.innerHTML = locationImageTag + travelInfoTag + weatherInfoTag + buttonWrapper
-
-
-
-    // </div > `
+    updateBtnStatus(isSaved, geoInfo.geonameId, dateSubmit)
 }
 
 const clearResultUI = () => {
@@ -120,6 +118,40 @@ const nodataUI = () => {
 const encodeValue = (userInput) => {
     const encoded = encodeURIComponent(userInput);
     return encoded;
+}
+
+const saveTrip = async (geonameId, dateSubmit) => {
+    try {
+        let result = await Client.saveTrip(geonameId, dateSubmit)
+        updateBtnStatus(true, geonameId, dateSubmit)
+        alert("Save trip successfully")
+    } catch (exception) {
+        alert(exception)
+    }
+}
+
+
+const deleteTrip = async (geonameId, dateSubmit) => {
+    try {
+        let result = await Client.deleteTrip(geonameId, dateSubmit)
+        updateBtnStatus(false, geonameId, dateSubmit)
+        alert("Delete trip successfully")
+    } catch (exception) {
+        alert(exception)
+    }
+}
+
+const updateBtnStatus = (isSaved, geonameId, dateSubmit) => {
+    if (isSaved) {
+        document.getElementById("delete-btn").classList.add("active")
+        document.getElementById("delete-btn").addEventListener("click", () => deleteTrip(geonameId, dateSubmit))
+        document.getElementById("save-btn").classList.remove("active")
+    } else {
+        document.getElementById("delete-btn").classList.remove("active")
+        document.getElementById("save-btn").classList.add("active")
+        document.getElementById("save-btn").addEventListener("click", () => saveTrip(geonameId, dateSubmit))
+
+    }
 }
 
 const formatDate = (date) => {
